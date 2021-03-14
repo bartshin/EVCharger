@@ -13,6 +13,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", .upToNextMajor(from: "0.3.0")),
         .package(url: "https://github.com/vapor/mysql-kit.git", from: "4.0.0"),
+        
     ],
     targets: [
         .target(

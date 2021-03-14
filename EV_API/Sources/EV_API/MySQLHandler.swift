@@ -8,11 +8,11 @@
 import Foundation
 import MySQLKit
 import NIO
-//arn:aws:iam::627914706622:role/service-role/Query_EV_Charger-role-4fpftbzt
+
 class MySQLHandler: NSObject {
     
     // MYSQL sever config
-    let defaultDatabase: String
+    let defaultDB: String
     let configuration: MySQLConfiguration
     var eventLoopGroup: EventLoopGroup!
     var pools: EventLoopGroupConnectionPool<MySQLConnectionSource>!
@@ -23,17 +23,28 @@ class MySQLHandler: NSObject {
     var mysql: MySQLDatabase {
         self.pools.database(logger: .init(label: "mysql logger"))
     }
-    func setUp() {
-        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        self.pools = .init(
-            source: .init(configuration: configuration),
-            maxConnectionsPerEventLoop: 1,
-            requestTimeout: .seconds(30),
-            logger: .init(label: "pool logger"),
-            on: eventLoopGroup)
+    func getLastUpdated(of dbName: String) -> Date?{
+        defer {
+            changeDB(to: defaultDB)
+        }
+        do {
+            changeDB(to: "mysql")
+            let result = try sql.select().column("last_update")
+                .from("innodb_table_stats")
+                .where("table_name", .equal, dbName)
+                .all().wait()
+            return try result.first?.decode(column: "last_update", as: Date.self)
+        }catch {
+            print(error.localizedDescription)
+            return nil
+        }
+    }
+    
+    func changeDB(to dbName: String) {
+        
         do {
             _ =  try mysql.withConnection{ conn in
-                return conn.simpleQuery("USE \(self.defaultDatabase)")
+                return conn.simpleQuery("USE \(dbName)")
             }
             .wait()
         } catch {
@@ -41,18 +52,31 @@ class MySQLHandler: NSObject {
         }
     }
     func insertStation(_ station: EVStation) throws {
-        try mysql.sql().insert(into: "allChargers")
+        try sql.insert(into: Tables.allChargers.rawValue)
             .model(station)
             .run().wait()
     }
-    init(host: String, port: Int, username: String, password: String, databasename: String) {
-        defaultDatabase = databasename
+    
+    init(host: String, port: Int, username: String, password: String, defaultDB: String) {
+        self.defaultDB = defaultDB
         self.configuration = MySQLConfiguration(
             hostname: host,
             port: port,
             username: username,
             password: password,
-            database: databasename,
+            database: defaultDB,
             tlsConfiguration: nil)
+        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        self.pools = .init(
+            source: .init(configuration: configuration),
+            maxConnectionsPerEventLoop: 1,
+            requestTimeout: .seconds(30),
+            logger: .init(label: "pool logger"),
+            on: eventLoopGroup)
+    }
+    
+    enum Tables: String {
+        case allChargers
+        case chargerStatus
     }
 }

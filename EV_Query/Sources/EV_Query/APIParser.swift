@@ -1,10 +1,13 @@
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
 
 import Foundation
 import NIO
 
 class APIParser: NSObject, XMLParserDelegate {
     // Data
-    private var results: [EVStation] = []
+    private var results = Set<EVStationStatus>()
     private var currentParsingData = [String: String]()
     
     // Parse flow properites
@@ -24,12 +27,15 @@ class APIParser: NSObject, XMLParserDelegate {
         self.numOfRows = numOfRows
     }
     
-    var url: URL {
+    var urlChargerInfo: URL {
         URL(string: "http://apis.data.go.kr/B552584/EvCharger/getChargerInfo?serviceKey=\(eCarKey)&numOfRows=\(numOfRows)&pageNo=\(pageNum)")!
     }
-    func parse() -> Promise<[EVStation]> {
-        let promise = Promise<[EVStation]>()
-        if let parser = XMLParser(contentsOf: url) {
+    var urlChargerStatus: URL {
+        URL(string: "http://apis.data.go.kr/B552584/EvCharger/getChargerStatus?serviceKey=\(eCarKey)&numOfRows=\(numOfRows)&pageNo=\(pageNum)")!
+    }
+    func parse() -> Promise<Set<EVStationStatus>> {
+        let promise = Promise<Set<EVStationStatus>>()
+        if let parser = XMLParser(contentsOf: urlChargerStatus) {
             parser.delegate = self
             if parser.parse() {
                 print("parsed: \(results.count)")
@@ -54,7 +60,7 @@ class APIParser: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, foundCharacters string: String) {
         if onParsing {
             let parseString = string.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let parsingKey = EVStation.ResponseKey(rawValue: currentElement)
+            guard let parsingKey = ResponseKey(rawValue: currentElement)
             else {
                 print(ParsingError.failAboutElement(currentElement))
                 return
@@ -65,8 +71,14 @@ class APIParser: NSObject, XMLParserDelegate {
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
         if elementName == "item" && onParsing {
-            if let parsedEVStation = EVStation(dict: currentParsingData) {
-                results.append(parsedEVStation)
+            if let parsed = EVStationStatus(dict: currentParsingData){
+                if var exist = results.first(where: { $0.stationId == parsed.stationId})
+                {
+                    exist.chargerStatus[parsed.chargerStatus.first!.key] = parsed.chargerStatus.first!.value
+                    results.update(with: exist)
+                }else {
+                    results.insert(parsed)
+                }
             }
             onParsing = false
         }

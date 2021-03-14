@@ -5,19 +5,18 @@ import MySQLKit
 let apikey:String = ""
 
 // My SQL Config
-let hostURL:String = ""
+let hostURL: String = ""
+let username: String = ""
+let password: String = ""
 let port:Int = 3306
-let username:String = ""
-let password:String = ""
-let defaultDatabase:String = ""
+let defaultDB:String = ""
 
 let mySQLHandler = MySQLHandler(host: hostURL,
                                 port: port,
                                 username: username,
                                 password: password,
-                                databasename: defaultDatabase)
+                                defaultDB: defaultDB)
 
-mySQLHandler.setUp()
 
 var parser = APIParser(apiKey: apikey)
 let startPage = 4

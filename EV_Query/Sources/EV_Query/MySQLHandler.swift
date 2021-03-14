@@ -8,6 +8,7 @@ class MySQLHandler: NSObject {
     
     // MYSQL sever config
     private let defaultDatabase: String
+    
     private let configuration: MySQLConfiguration
     private var eventLoopGroup: EventLoopGroup!
     private var pools: EventLoopGroupConnectionPool<MySQLConnectionSource>!
@@ -18,17 +19,62 @@ class MySQLHandler: NSObject {
     private var mysql: MySQLDatabase {
         self.pools.database(logger: .init(label: "mysql logger"))
     }
-    func useDefaultDB() throws {
+    func getLastUpdated(of dbName: String) -> Date?{
+        defer {
+            changeDB(to: defaultDB)
+        }
+        do {
+            changeDB(to: "mysql")
+            let result = try sql.select().column("last_update")
+                .from("innodb_table_stats")
+                .where("table_name", .equal, dbName)
+                .all().wait()
+            return try result.first?.decode(column: "last_update", as: Date.self)
+        }catch {
+            print(error.localizedDescription)
+            return nil
+        }
+    }
+    
+    func changeDB(to dbName: String) {
+        
         do {
             _ =  try mysql.withConnection{ conn in
-                return conn.simpleQuery("USE \(self.defaultDatabase)")
+                return conn.simpleQuery("USE \(dbName)")
             }
             .wait()
         } catch {
-            throw MySQLError.failToFindDB
+            print(error)
         }
     }
-    private func query(located coordinates: Coordinates , with margin: Double, by maxLimit: Int = 100) -> [SQLRow] {
+    func insertStatus(_ status: EVStationStatus) throws {
+        try sql.insert(into: Tables.chargerStatus.rawValue)
+            .model(status)
+            .run().wait()
+    }
+    func getStatus(for stationIds: [String]) throws -> [EVStationStatus]{
+        var results = [EVStationStatus]()
+        let rows: [SQLRow]
+        let idLiteral = stationIds.reduce(String()) { result, id in
+            (result.isEmpty ? result : "\(result), ") + "'\(id)'"
+        }
+        do {
+            rows = try sql.raw("SELECT * FROM \(raw: Tables.chargerStatus.rawValue) WHERE stationId IN (\(raw: idLiteral))")
+                .all().wait()
+        }catch {
+            throw MySQLError.failToQueryDB(error.localizedDescription)
+        }
+        do{
+            try rows.forEach{
+                let parsed = try $0.decode(model: EVStationStatus.self)
+                    results.append(parsed)
+            }
+            return results
+        }catch {
+            throw MySQLError.decodingError
+        }
+    }
+    private func query(located coordinates: Coordinates , with margin: Double, by maxLimit: Int = 100) throws -> [SQLRow] {
         do
         {
             return try sql.select().columns(SQLLiteral.all)
@@ -43,11 +89,10 @@ class MySQLHandler: NSObject {
                 .all().wait()
             
         }catch {
-            print(error.localizedDescription)
-            return []
+            throw MySQLError.failToQueryDB(error.localizedDescription)
         }
     }
-    private func query(contain address: String, by maxLimit: Int = 100) -> [SQLRow] {
+    private func query(contain address: String, by maxLimit: Int = 100) throws -> [SQLRow] {
         do
         {
             return try sql.select().columns(SQLLiteral.all)
@@ -56,8 +101,7 @@ class MySQLHandler: NSObject {
                 .limit(maxLimit)
                 .all().wait()
         }catch {
-            print(error.localizedDescription)
-            return []
+            throw MySQLError.failToQueryDB(error.localizedDescription)
         }
     }
     
@@ -84,9 +128,17 @@ class MySQLHandler: NSObject {
            let longitude = request.queryStringParameters?["longitude"],
            let coordinates = Coordinates(latitudeString: latitude, longitudeString: longitude){
             let margin = Double((request.queryStringParameters?["margin"]) ?? "") ?? 0.5
-            result = query(located: coordinates, with: margin)
+            do {
+                result = try query(located: coordinates, with: margin)
+            }catch {
+                throw error
+            }
         }else if let address = request.queryStringParameters?["address"] {
-            result = query(contain: address)
+            do{
+                result = try query(contain: address)
+            }catch {
+                throw error
+            }
         }else {
             throw MySQLError.invaildRequest("\(request.rawQueryString)")
         }
@@ -98,10 +150,15 @@ class MySQLHandler: NSObject {
         }
         return stations
     }
+    enum Tables: String {
+        case allChargers
+        case chargerStatus
+    }
 }
 
 enum MySQLError: Error {
     case failToFindDB
     case invaildRequest(String)
     case decodingError
+    case failToQueryDB(String)
 }

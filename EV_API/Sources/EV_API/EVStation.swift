@@ -52,29 +52,31 @@ struct EVStation: Codable {
         self.chargerId = dict.value(of: .chgerId) ?? ""
     }
     
-    enum ResponseKey: String {
-        case statNm
-        case statId
-        case chgerId
-        case chgerType
-        case addr
-        case lat
-        case lng
-        case useTime
-        case busiId
-        case busiNm
-        case busiCall
-        case stat
-        case statUpdDt
-        case powerType
-        case note
-        case zcode
-        case parkingFree
-    }
+   
+}
+
+enum ResponseKey: String {
+    case statNm
+    case statId
+    case chgerId
+    case chgerType
+    case addr
+    case lat
+    case lng
+    case useTime
+    case busiId
+    case busiNm
+    case busiCall
+    case stat
+    case statUpdDt
+    case powerType
+    case note
+    case zcode
+    case parkingFree
 }
 
 extension Dictionary where Key == String, Value == String {
-    func value(of key: EVStation.ResponseKey) -> String? {
+    func value(of key: ResponseKey) -> String? {
         self[key.rawValue]
     }
 }
