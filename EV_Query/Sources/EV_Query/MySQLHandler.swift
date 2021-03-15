@@ -19,22 +19,6 @@ class MySQLHandler: NSObject {
     private var mysql: MySQLDatabase {
         self.pools.database(logger: .init(label: "mysql logger"))
     }
-    func getLastUpdated(of dbName: String) -> Date?{
-        defer {
-            changeDB(to: defaultDB)
-        }
-        do {
-            changeDB(to: "mysql")
-            let result = try sql.select().column("last_update")
-                .from("innodb_table_stats")
-                .where("table_name", .equal, dbName)
-                .all().wait()
-            return try result.first?.decode(column: "last_update", as: Date.self)
-        }catch {
-            print(error.localizedDescription)
-            return nil
-        }
-    }
     
     func changeDB(to dbName: String) {
         
@@ -45,33 +29,6 @@ class MySQLHandler: NSObject {
             .wait()
         } catch {
             print(error)
-        }
-    }
-    func insertStatus(_ status: EVStationStatus) throws {
-        try sql.insert(into: Tables.chargerStatus.rawValue)
-            .model(status)
-            .run().wait()
-    }
-    func getStatus(for stationIds: [String]) throws -> [EVStationStatus]{
-        var results = [EVStationStatus]()
-        let rows: [SQLRow]
-        let idLiteral = stationIds.reduce(String()) { result, id in
-            (result.isEmpty ? result : "\(result), ") + "'\(id)'"
-        }
-        do {
-            rows = try sql.raw("SELECT * FROM \(raw: Tables.chargerStatus.rawValue) WHERE stationId IN (\(raw: idLiteral))")
-                .all().wait()
-        }catch {
-            throw MySQLError.failToQueryDB(error.localizedDescription)
-        }
-        do{
-            try rows.forEach{
-                let parsed = try $0.decode(model: EVStationStatus.self)
-                    results.append(parsed)
-            }
-            return results
-        }catch {
-            throw MySQLError.decodingError
         }
     }
     private func query(located coordinates: Coordinates , with margin: Double, by maxLimit: Int = 100) throws -> [SQLRow] {

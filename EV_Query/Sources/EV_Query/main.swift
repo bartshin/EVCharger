@@ -5,9 +5,6 @@ import MySQLKit
 
 /// - Tag: Config
 
-// EV Charger API
-let apikey:String = ""
-
 //  AWS Config
 let AWSInvokePath: String = ""
 
@@ -47,54 +44,7 @@ Lambda.run {
         }catch {
             returnError(error, by: callback)
         }
-        // MARK: - Update charger status
         
-        if let lastUpdated = db.getLastUpdated(of: "chargerStatus") ,
-           abs(lastUpdated.timeIntervalSinceReferenceDate - Date().timeIntervalSinceReferenceDate) > minimumRetrigger{
-            let parser = APIParser(apiKey: apikey)
-            let promise = parser.parse()
-            promise.observe { result in
-                switch result {
-                case .success(let statusSet):
-                    statusSet.forEach{
-                        do{
-                            try db.insertStatus($0)
-                        }catch {
-                            print(error.localizedDescription)
-                        }
-                    }
-                case .failure(let error):
-                    print(error.localizedDescription)
-                }
-            }
-        }
-    case ( AWSInvokePath, .POST):
-        let db = MySQLHandler(
-            hostURL: hostURL,
-            port: port,
-            username: username,
-            password: password,
-            defaultDB: defaultDB)
-        let jsonDecoder = JSONDecoder()
-        if let body = request.body,
-            let idToSearch = try? jsonDecoder.decode([String].self, from: body) {
-            do {
-                let status = try db.getStatus(for: idToSearch)
-                let data = try JSONEncoder().encode(status)
-                callback(.success(
-                            APIGateway.V2.Response(
-                                statusCode: .ok,
-                                headers: ["content-type": "application/json"],
-                                body: String(data: data, encoding: .utf8))))
-            }catch {
-                returnError(error, by: callback)
-            }
-        }else {
-            callback(.success(
-                        APIGateway.V2.Response(
-                            statusCode: .badRequest,
-                            body: request.body)))
-        }
     default:
         callback(.success(APIGateway.V2.Response(statusCode: .notFound)))
     }
