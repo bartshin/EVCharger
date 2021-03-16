@@ -38,10 +38,12 @@
 AWS Lambda, AWS api gateway를 이용해 http요청을 받아 db의 데이터를 검색할수 있는 함수
 
 - 좌표를 이용한 검색 (위도: 37.571076, 경도: 126.995880, 오차범위: 0.01)
-<host url>/charger?latitude=37.571076&longitude=126.995880&margin=0.01
+ 
+(host url)/charger?latitude=37.571076&longitude=126.995880&margin=0.01
 
 - 주소로 검색 ( 검색어: 종로구 )
-<host url>/charger?address=종로구
+
+(host url)/charger?address=종로구
   
 응답
 
