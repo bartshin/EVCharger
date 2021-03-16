@@ -37,4 +37,30 @@
 ### EV_Query
 AWS Lambda, AWS api gateway를 이용해 http요청을 받아 db의 데이터를 검색할수 있는 함수
 
-좌표를
+- 좌표를 이용한 검색 (위도: 37.571076, 경도: 126.995880, 오차범위: 0.01)
+<host url>/charger?latitude=37.571076&longitude=126.995880&margin=0.01
+
+- 주소로 검색 ( 검색어: 종로구 )
+<host url>/charger?address=종로구
+  
+응답
+
+```json
+{
+        "powerType": "급속(50kW)",
+        "note": "",
+        "longitude": 126.99588,
+        "timeAvailable": "시간 이용가능",
+        "chargerType": "03",
+        "organCallNumber": "1661-9408",
+        "stationId": "ME000001",
+        "organName": "환경부",
+        "zcode": 11,
+        "address": "서울특별시 종로구 종로 157, 지하주차장 4층 하층 T구역",
+        "stationName": "종묘 공영주차장",
+        "latitude": 37.571075,
+        "organId": "ME",
+        "chargerId": "01"
+    },
+```
+
