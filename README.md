@@ -1,4 +1,5 @@
 ## 전기차 충전소 검색이 가능한 어플 (ios, swift)
+## Notion https://www.notion.so/EV_Station-3b76f75ae78145a9b88e469e63cb4f89
 
 ### EV_API
 공공데이터 api의 데이터를 mysql db로 옮기기 위한 툴
